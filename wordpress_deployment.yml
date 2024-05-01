@@ -1,0 +1,171 @@
+- name: "Install Packages" 
+
+  hosts: wordpress 
+
+  tasks: 
+
+          - name: Install required packages 
+
+            apt: 
+
+                    name: "{{ item }}" 
+
+                    update_cache: yes 
+
+            loop: 
+
+                  - mysql-server 
+
+                  - apache2 
+
+                  - ghostscript 
+
+                  - libapache2-mod-php 
+
+                  - php 
+
+                  - php-bcmath 
+
+                  - php-curl 
+
+                  - php-imagick 
+
+                  - php-intl 
+
+                  - php-json 
+
+                  - php-mbstring 
+
+                  - php-mysql 
+
+                  - php-xml 
+
+                  - php-zip 
+
+                  - python3-pymysql 
+
+ 
+
+- name: "Install Wordpress" 
+
+  hosts: wordpress 
+
+  vars: 
+
+          wp_dir: /srv/www 
+
+  tasks: 
+
+          - name: "manage the installation directory" 
+
+            file: 
+
+                path: "{{ wp_dir }}" 
+
+                state: directory 
+
+                recurse: yes 
+
+                owner: www-data 
+
+                group: www-data 
+
+          - name: "Download and extract Wordpress" 
+
+            unarchive: 
+
+                    src: https://wordpress.org/latest.tar.gz 
+
+                    dest: "{{ wp_dir }}" 
+
+                    remote_src: yes 
+
+ 
+
+- name: "Configure Apache for Wordpress" 
+
+  hosts: wordpress 
+
+  tasks: 
+
+          - name: "create apache config file" 
+
+            copy: 
+
+                    dest: /etc/apache2/sites-available/wordpress.conf 
+
+                    src: apache_config.xml 
+
+          - name: "enable apache modules" 
+
+            shell: "{{ item }}" 
+
+            loop: 
+
+                    - a2ensite wordpress 
+
+                    - a2enmod rewrite 
+
+                    - a2dissite 000-default 
+
+            notify: 
+
+                    - "Restart Apache service" 
+
+  handlers: 
+
+          - name: "Restart Apache service" 
+
+            service: 
+
+                    name: apache2 
+
+                    state: restarted 
+
+                    enabled: true 
+
+ 
+
+- name: "Manage WordPress Database" 
+
+  hosts: wordpress 
+
+  vars: 
+
+          db_name: "wordpress" 
+
+          user: "wp_user" 
+
+  tasks: 
+
+          - name: "Create Database" 
+
+            mysql_db: 
+
+                    name: "{{ db_name }}" 
+
+                    state: present 
+
+                    login_unix_socket: /var/run/mysqld/mysqld.sock 
+
+          - name: "Manage Database User" 
+
+            mysql_user: 
+
+                    name: "{{ user }}" 
+
+                    password: "password" 
+
+                    priv: '*.*:ALL' 
+
+                    state: present 
+
+                    login_unix_socket: /var/run/mysqld/mysqld.sock 
+
+          - name: "create Wordpress config file" 
+
+            copy: 
+
+                    dest: /srv/www/wordpress/wp-config.php  
+
+                    src: wp-config-sample.php 
